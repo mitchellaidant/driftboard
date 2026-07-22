@@ -1,0 +1,16 @@
+{
+  "name": "driftboard",
+  "version": "1.0.0",
+  "description": "Driftboard — a local, disk-backed todo board on an infinite canvas",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.12",
+    "express": "^4.22.2",
+    "marked": "^15.0.12",
+    "multer": "^2.2.0"
+  }
+}
