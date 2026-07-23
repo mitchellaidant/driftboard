@@ -14,6 +14,11 @@
     <nav class="workspaces" id="workspaces"></nav>
     <button class="ws-add" id="ws-add" title="New board">+</button>
     <div class="header-spacer"></div>
+    <div class="save-status" id="save-status" title="Save status">
+      <span class="save-spinner"></span>
+      <span class="save-check">✓</span>
+      <span class="save-text">Saved</span>
+    </div>
     <button class="icon-btn theme-toggle" id="theme-toggle" title="Toggle light / dark"></button>
   </header>
 
@@ -85,9 +90,9 @@
   <!-- Binder editor modal -->
   <div id="binder-overlay" class="modal-overlay hidden">
     <div class="modal binder-modal" id="binder-modal" role="dialog" aria-modal="true">
-      <button class="binder-color-bar" id="binder-color-bar" title="Click to change color"></button>
-      <input type="color" id="binder-color-input" class="hidden" />
+      <div class="binder-color-bar" id="binder-color-bar" title="Click to change colour"></div>
       <div class="modal-tools">
+        <button class="icon-btn" id="binder-edit-color" title="Change colour" aria-label="Change colour"></button>
         <button class="icon-btn danger" id="binder-delete" title="Delete binder" aria-label="Delete binder"></button>
         <button class="icon-btn" id="binder-close" title="Close (Esc)" aria-label="Close"></button>
       </div>

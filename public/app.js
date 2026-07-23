@@ -22,6 +22,7 @@ let panX = 0, panY = 0, zoom = 1;
 let currentCardId = null;
 let descEditing = false;
 let pendingPopId = null;
+let droppedId = null;
 let theme = localStorage.getItem('tt-theme') || 'light';
 let snapEnabled = localStorage.getItem('tt-snap') !== 'off';
 const editingAtts = new Set();
@@ -29,17 +30,45 @@ const editingAtts = new Set();
 const $ = (id) => document.getElementById(id);
 const snap = (v) => (snapEnabled ? Math.round(v / GRID) * GRID : v);
 
+// ---------- save indicator ----------
+let pendingWrites = 0, saveStart = 0, savedTimer = null;
+function beginSave() {
+  if (pendingWrites === 0) saveStart = performance.now();
+  pendingWrites++;
+  clearTimeout(savedTimer);
+  const el = document.getElementById('save-status');
+  el.classList.add('saving');
+  el.querySelector('.save-text').textContent = 'Saving…';
+}
+function endSave() {
+  pendingWrites = Math.max(0, pendingWrites - 1);
+  if (pendingWrites > 0) return;
+  const el = document.getElementById('save-status');
+  const wait = Math.max(0, 350 - (performance.now() - saveStart)); // keep "Saving…" visible briefly
+  savedTimer = setTimeout(() => {
+    if (pendingWrites !== 0) return;
+    el.classList.remove('saving');
+    el.querySelector('.save-text').textContent = 'Saved';
+  }, wait);
+}
+
 // ---------- api ----------
 async function api(method, url, body, isForm) {
   const opts = { method };
   if (isForm) opts.body = body;
   else if (body !== undefined) { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify(body); }
-  const res = await fetch(url, opts);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || 'request failed');
+  const isWrite = method !== 'GET';
+  if (isWrite) beginSave();
+  try {
+    const res = await fetch(url, opts);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'request failed');
+    }
+    return res.status === 204 ? null : await res.json();
+  } finally {
+    if (isWrite) endSave();
   }
-  return res.status === 204 ? null : res.json();
 }
 
 // ---------- utils ----------
@@ -207,6 +236,7 @@ function renderWorkspace() {
   ws.binders.forEach((b, i) => world.appendChild(makeBinderEl(b, i)));
   ws.cards.filter((c) => !c.binderId).forEach((c) => world.appendChild(makeCardEl(c, true)));
   pendingPopId = null;
+  droppedId = null;
 }
 
 function cardBadges(card) {
@@ -218,7 +248,7 @@ function cardBadges(card) {
 
 function makeCardEl(card, free) {
   const el = document.createElement('div');
-  el.className = 'card' + (free ? ' free' : '') + (card.id === pendingPopId ? ' pop-in' : '');
+  el.className = 'card' + (free ? ' free' : '') + (card.id === pendingPopId ? ' pop-in' : '') + (card.id === droppedId ? ' drop-in' : '');
   el.dataset.id = card.id;
   if (free) { el.style.left = card.x + 'px'; el.style.top = card.y + 'px'; }
   el.innerHTML = `<div class="card-accent"></div><div class="card-title-txt"></div><div class="card-desc"></div>${cardBadges(card)}`;
@@ -227,18 +257,23 @@ function makeCardEl(card, free) {
   const preview = stripMd(card.description);
   if (preview) descEl.textContent = preview; else descEl.remove();
 
+  const actions = document.createElement('div');
+  actions.className = 'card-actions';
+  const edit = document.createElement('button');
+  edit.className = 'icon-btn card-act'; edit.innerHTML = ICON.pencil; edit.title = 'Edit card';
+  edit.addEventListener('click', (e) => { e.stopPropagation(); openCard(card.id); });
   const del = document.createElement('button');
-  del.className = 'icon-btn danger card-del';
-  del.innerHTML = ICON.trash; del.title = 'Delete card';
+  del.className = 'icon-btn danger card-act'; del.innerHTML = ICON.trash; del.title = 'Delete card';
   del.addEventListener('click', async (e) => {
     e.stopPropagation();
     const title = card.title;
     el.classList.add('removing');
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 180));
     try { await api('DELETE', `/api/cards/${card.id}`); await reloadWorkspace(); toastAction(`Deleted “${title}”`, 'Undo', undo); }
     catch (err) { el.classList.remove('removing'); toast(err.message); }
   });
-  el.appendChild(del);
+  actions.append(edit, del);
+  el.appendChild(actions);
   return el;
 }
 
@@ -254,8 +289,11 @@ function makeBinderEl(binder, index) {
   el.innerHTML = `
     <div class="binder-head">
       <span class="binder-title" title="Double-click to edit"></span>
+      <span class="binder-actions">
+        <button class="icon-btn edit-binder" title="Edit binder">${ICON.pencil}</button>
+        <button class="icon-btn danger delete-binder" title="Delete binder">${ICON.trash}</button>
+      </span>
       <span class="binder-count">${cards.length}</span>
-      <button class="icon-btn danger delete-binder" title="Delete binder">${ICON.trash}</button>
     </div>
     ${binder.description ? '<div class="binder-desc"></div>' : ''}
     <div class="binder-cards ${cards.length ? '' : 'empty'}"></div>
@@ -266,6 +304,7 @@ function makeBinderEl(binder, index) {
   cards.forEach((c) => cardsEl.appendChild(makeCardEl(c, false)));
 
   el.querySelector('.binder-title').addEventListener('dblclick', (e) => { e.stopPropagation(); openBinderEditor(binder.id); });
+  el.querySelector('.edit-binder').addEventListener('click', (e) => { e.stopPropagation(); openBinderEditor(binder.id); });
 
   el.querySelector('.delete-binder').addEventListener('click', async () => {
     const title = binder.title;
@@ -329,8 +368,9 @@ function insertionIndex(binderEl, y, draggingId) {
 function showInsert(binderEl, index, draggingId) {
   const cardsEl = binderEl.querySelector('.binder-cards');
   const items = [...cardsEl.children].filter((c) => c.classList.contains('card') && c.dataset.id !== draggingId);
-  const line = document.createElement('div'); line.className = 'insert-line'; insertLineEl = line;
-  if (index >= items.length) cardsEl.appendChild(line); else cardsEl.insertBefore(line, items[index]);
+  if (items.length === 0) return; // empty binder: the orange "Drop cards here" area marks the target
+  const box = document.createElement('div'); box.className = 'insert-box'; insertLineEl = box;
+  if (index >= items.length) cardsEl.appendChild(box); else cardsEl.insertBefore(box, items[index]);
 }
 
 viewport.addEventListener('pointerdown', (e) => {
@@ -357,18 +397,31 @@ function startBinderDrag(e, binderEl) {
   const binder = ws.binders.find((b) => b.id === binderEl.dataset.id);
   const sx = e.clientX, sy = e.clientY, x0 = binder.x, y0 = binder.y;
   const head = binderEl.querySelector('.binder-head');
-  let moved = false;
+  let moved = false, lastX = e.clientX, curAngle = 0, targetAngle = 0, raf = null;
+  const tick = () => {
+    targetAngle *= 0.85;
+    curAngle += (targetAngle - curAngle) * 0.25;
+    binderEl.style.transform = `rotate(${curAngle.toFixed(2)}deg) scale(1.015)`;
+    raf = requestAnimationFrame(tick);
+  };
   const move = (ev) => {
     if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return;
-    moved = true; head.classList.add('grabbing');
+    if (!moved) { moved = true; head.classList.add('grabbing'); binderEl.classList.add('binder-dragging'); raf = requestAnimationFrame(tick); }
+    targetAngle = Math.max(-6, Math.min(6, (ev.clientX - lastX) * 0.5)); lastX = ev.clientX;
     binder.x = snap(x0 + (ev.clientX - sx) / zoom);
     binder.y = snap(y0 + (ev.clientY - sy) / zoom);
     binderEl.style.left = binder.x + 'px'; binderEl.style.top = binder.y + 'px';
   };
   const up = () => {
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
-    head.classList.remove('grabbing');
-    if (moved) api('PATCH', `/api/binders/${binder.id}`, { x: binder.x, y: binder.y }).catch((err) => toast(err.message));
+    if (raf) cancelAnimationFrame(raf);
+    head.classList.remove('grabbing'); binderEl.classList.remove('binder-dragging');
+    binderEl.style.transform = '';
+    if (moved) {
+      binderEl.classList.add('dropped');
+      setTimeout(() => binderEl.classList.remove('dropped'), 280);
+      api('PATCH', `/api/binders/${binder.id}`, { x: binder.x, y: binder.y }).catch((err) => toast(err.message));
+    }
   };
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
 }
@@ -379,18 +432,31 @@ function startCardDrag(e, cardEl) {
   const sx = e.clientX, sy = e.clientY;
   const rect = cardEl.getBoundingClientRect();
   const offX = e.clientX - rect.left, offY = e.clientY - rect.top;
-  let ghost = null, moved = false, drop = null;
+  let ghost = null, moved = false, drop = null, lastX = e.clientX;
+  let curAngle = 0, targetAngle = 0, raf = null;
+
+  // swing the picked-up card side to side by horizontal velocity, easing back upright
+  const tick = () => {
+    targetAngle *= 0.85;
+    curAngle += (targetAngle - curAngle) * 0.25;
+    if (ghost) ghost.style.transform = `rotate(${curAngle.toFixed(2)}deg)`;
+    raf = requestAnimationFrame(tick);
+  };
 
   const move = (ev) => {
     if (!moved) {
       if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
       moved = true;
       ghost = cardEl.cloneNode(true);
-      ghost.classList.add('drag-ghost'); ghost.classList.remove('pop-in');
+      ghost.classList.add('drag-ghost'); ghost.classList.remove('pop-in', 'drop-in');
       ghost.style.width = rect.width + 'px';
       document.body.appendChild(ghost);
       cardEl.classList.add('drag-source');
+      document.body.classList.add('dragging-card');
+      raf = requestAnimationFrame(tick);
     }
+    targetAngle = Math.max(-14, Math.min(14, (ev.clientX - lastX) * 1.3));
+    lastX = ev.clientX;
     ghost.style.left = (ev.clientX - offX) + 'px';
     ghost.style.top = (ev.clientY - offY) + 'px';
     clearInsert();
@@ -404,6 +470,8 @@ function startCardDrag(e, cardEl) {
   };
   const up = (ev) => {
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+    if (raf) cancelAnimationFrame(raf);
+    document.body.classList.remove('dragging-card');
     if (ghost) ghost.remove();
     cardEl.classList.remove('drag-source');
     clearInsert();
@@ -418,6 +486,7 @@ function startCardDrag(e, cardEl) {
 }
 
 async function applyMove(cardId, payload) {
+  droppedId = cardId; // play the drop-in animation on the card once it re-renders
   try { await api('POST', `/api/cards/${cardId}/move`, payload); await reloadWorkspace(); }
   catch (e) { toast(e.message); await reloadWorkspace(); }
 }
@@ -690,6 +759,8 @@ async function commitText(att, value) {
 }
 async function removeAttachment(attId) {
   const card = currentCard();
+  const el = attachmentsEl.querySelector(`[data-att-id="${attId}"]`);
+  if (el) { el.classList.add('removing'); await new Promise((r) => setTimeout(r, 150)); }
   try {
     await api('DELETE', `/api/cards/${card.id}/attachments/${attId}`);
     card.attachments = card.attachments.filter((a) => a.id !== attId);
@@ -745,37 +816,60 @@ $('delete-card').addEventListener('click', async () => {
 });
 
 // ---------- binder editor ----------
+const BINDER_PALETTE = [
+  '#646d72', '#e76125', '#d21419', '#b8860b', '#2e8b57', '#3b7dd8',
+  '#8e44ad', '#e91e63', '#00897b', '#f4a300', '#5c6bc0', '#455a64',
+];
 let currentBinderId = null;
 const binderOverlay = $('binder-overlay');
 const binderColorBar = $('binder-color-bar');
-const binderColorInput = $('binder-color-input');
 $('binder-close').innerHTML = ICON.close;
 $('binder-delete').innerHTML = ICON.trash;
+$('binder-edit-color').innerHTML = ICON.pencil;
 const currentBinder = () => ws && ws.binders.find((b) => b.id === currentBinderId);
 
 function openBinderEditor(binderId) {
   currentBinderId = binderId;
   const b = currentBinder(); if (!b) return;
-  const color = binderColor(b, ws.binders.indexOf(b));
   $('binder-name').value = b.title;
   $('binder-desc').value = b.description || '';
-  binderColorBar.style.setProperty('--binder-color', color);
-  if (/^#[0-9a-fA-F]{6}$/.test(color)) binderColorInput.value = color;
+  binderColorBar.style.setProperty('--binder-color', binderColor(b, ws.binders.indexOf(b)));
   binderOverlay.classList.remove('hidden');
   $('binder-name').focus(); $('binder-name').select();
 }
 function closeBinderEditor() { binderOverlay.classList.add('hidden'); currentBinderId = null; }
 
-binderColorBar.addEventListener('click', () => binderColorInput.click());
-binderColorInput.addEventListener('input', () => {
+// custom colour picker that pops up next to the click (native OS dialog ignores position on Linux)
+function openColorPopover(x, y) {
+  closeMenu();
   const b = currentBinder(); if (!b) return;
-  b.color = binderColorInput.value;
-  binderColorBar.style.setProperty('--binder-color', b.color);
-  renderWorkspace(); // live preview on the canvas
-});
-binderColorInput.addEventListener('change', async () => {
-  const b = currentBinder(); if (!b) return;
-  try { await api('PATCH', `/api/binders/${b.id}`, { color: b.color }); } catch (e) { toast(e.message); }
+  const current = binderColor(b, ws.binders.indexOf(b));
+  const pop = document.createElement('div');
+  pop.className = 'color-popover';
+  BINDER_PALETTE.forEach((col) => {
+    const sw = document.createElement('button');
+    sw.className = 'color-swatch' + (col.toLowerCase() === current.toLowerCase() ? ' selected' : '');
+    sw.style.background = col;
+    sw.title = col;
+    sw.addEventListener('click', async () => {
+      closeMenu();
+      b.color = col;
+      binderColorBar.style.setProperty('--binder-color', col);
+      renderWorkspace();
+      try { await api('PATCH', `/api/binders/${b.id}`, { color: col }); } catch (e) { toast(e.message); }
+    });
+    pop.appendChild(sw);
+  });
+  pop.style.left = Math.min(x, window.innerWidth - 220) + 'px';
+  pop.style.top = Math.min(y, window.innerHeight - 130) + 'px';
+  document.body.appendChild(pop);
+  openMenuEl = pop;
+  setTimeout(() => document.addEventListener('pointerdown', onDocDown, true), 0);
+}
+binderColorBar.addEventListener('click', (e) => openColorPopover(e.clientX, e.clientY));
+$('binder-edit-color').addEventListener('click', (e) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  openColorPopover(r.left - 180, r.bottom + 6);
 });
 async function saveBinderName() {
   const b = currentBinder(); if (!b) return;
