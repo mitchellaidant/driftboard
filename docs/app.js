@@ -523,7 +523,7 @@ $('add-binder-btn').addEventListener('click', async () => {
     const b = await api('POST', `/api/workspaces/${ws.id}/binders`, { title: 'New binder', x: snap(Math.round(c.x - 156)), y: snap(Math.round(c.y - 40)) });
     pendingPopId = b.id;
     await reloadWorkspace();
-    openBinderEditor(b.id);
+    openBinderEditor(b.id, true); // new binder → jump straight to naming it
   } catch (e) { toast(e.message); }
 });
 
@@ -907,14 +907,16 @@ $('binder-delete').innerHTML = ICON.trash;
 $('binder-edit-color').innerHTML = ICON.pencil;
 const currentBinder = () => ws && ws.binders.find((b) => b.id === currentBinderId);
 
-function openBinderEditor(binderId) {
+// focusName: only true for a freshly created binder (toolbar), where jumping
+// straight into naming is wanted. Double-click / edit just opens the editor.
+function openBinderEditor(binderId, focusName = false) {
   currentBinderId = binderId;
   const b = currentBinder(); if (!b) return;
   $('binder-name').value = b.title;
   $('binder-desc').value = b.description || '';
   binderColorBar.style.setProperty('--binder-color', binderColor(b, ws.binders.indexOf(b)));
   binderOverlay.classList.remove('hidden');
-  $('binder-name').focus(); $('binder-name').select();
+  if (focusName) { $('binder-name').focus(); $('binder-name').select(); }
 }
 function closeBinderEditor() { binderOverlay.classList.add('hidden'); currentBinderId = null; }
 

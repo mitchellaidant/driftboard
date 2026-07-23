@@ -44,6 +44,129 @@
     return { version: 2, activeWorkspaceId: ws.id, workspaces: [ws], trash: [] };
   }
 
+  // --- Demo seed: preload the board with driftboard's own dev history --------
+  // Images are the showcase media served from docs/media/; seed() fetches them
+  // into the blob store on first load (and on reset) so they behave like uploads.
+  const SEED_IMAGES = [
+    { key: 'seed-animations', src: 'media/cardMoveAnimations.gif', mimeType: 'image/gif', name: 'drag-animations.gif' },
+    { key: 'seed-reorder', src: 'media/showCardAttachments.gif', mimeType: 'image/gif', name: 'attachment-reordering.gif' },
+    { key: 'seed-attachments', src: 'media/cardAttachmentView.png', mimeType: 'image/png', name: 'card-attachments.png' },
+    { key: 'seed-board', src: 'media/normalView.png', mimeType: 'image/png', name: 'driftboard-board.png' },
+  ];
+  const IMG = Object.fromEntries(SEED_IMAGES.map((i) => [i.key, i]));
+
+  function buildSeedState(sizes) {
+    const txt = (content, createdAt, order) => ({ id: uuid(), type: 'text', content, createdAt, order });
+    const link = (url, title, createdAt, order) => ({ id: uuid(), type: 'url', url, title, createdAt, order });
+    const img = (key, createdAt, order) => ({ id: uuid(), type: 'image', filename: IMG[key].key, originalName: IMG[key].name, mimeType: IMG[key].mimeType, size: sizes[IMG[key].key] || 0, createdAt, order });
+    const card = (o) => ({ description: '', attachments: [], ...o });
+
+    const binders = [
+      { id: uuid(), title: 'To Do', x: 40, y: 40, color: '#646d72' },
+      { id: uuid(), title: 'In Progress', x: 380, y: 40, color: '#e76125' },
+      { id: uuid(), title: 'Blocked', x: 720, y: 40, color: '#d21419' },
+      { id: uuid(), title: 'Reviewing', x: 1060, y: 40, color: '#b8860b' },
+      { id: uuid(), title: 'Completed', x: 1400, y: 40, color: '#2e8b57' },
+    ];
+    const [todo, inprog, blocked, reviewing, completed] = binders.map((b) => b.id);
+
+    const cards = [
+      card({
+        id: uuid(), title: '👋 Welcome to the Driftboard demo', binderId: null, order: 0, x: 40, y: 430,
+        description: 'This whole board lives in **your browser** — nothing is uploaded. Drag cards between binders, open one to add notes and files, and hit **Reset demo** in the top bar to start fresh.\n\nPan by dragging empty space; ⌘/Ctrl + scroll to zoom.',
+        attachments: [txt('Everything here is a real, editable card. Try dragging me somewhere, or open me and drop in an image.', '2026-07-23T09:00:00.000Z', 0)],
+        createdAt: '2026-07-23T09:00:00.000Z', updatedAt: '2026-07-23T09:00:00.000Z',
+      }),
+      card({
+        id: uuid(), title: 'Multi-select & bulk drag', binderId: todo, order: 0, x: 80, y: 80,
+        description: 'Shift-click to grab several cards, then drag them between binders as one stack.',
+        createdAt: '2026-07-23T10:00:00.000Z', updatedAt: '2026-07-23T10:00:00.000Z',
+      }),
+      card({
+        id: uuid(), title: 'Command palette (⌘K)', binderId: todo, order: 1, x: 80, y: 80,
+        description: 'Fuzzy-jump to any card or board and run actions without touching the mouse.',
+        createdAt: '2026-07-23T10:05:00.000Z', updatedAt: '2026-07-23T10:05:00.000Z',
+      }),
+      card({
+        id: uuid(), title: 'Browser-only demo on GitHub Pages', binderId: inprog, order: 0, x: 80, y: 80,
+        description: 'Swap the Express backend for an **IndexedDB** one behind the same `api()` call, so the entire app runs client-side — no server needed.',
+        attachments: [
+          img('seed-board', '2026-07-23T11:00:00.000Z', 0),
+          link('https://mitchellaidant.github.io/driftboard/', 'Live demo', '2026-07-23T11:01:00.000Z', 1),
+        ],
+        createdAt: '2026-07-23T11:00:00.000Z', updatedAt: '2026-07-23T11:10:00.000Z',
+      }),
+      card({
+        id: uuid(), title: 'Attachment reordering with a drop-ghost', binderId: reviewing, order: 0, x: 80, y: 80,
+        attSort: 'custom',
+        description: 'Drag an attachment by its grip: a lifted ghost follows the cursor and an **orange placeholder** shows where it will land, while the other items slide out of the way.',
+        attachments: [
+          img('seed-reorder', '2026-07-22T15:00:00.000Z', 0),
+          img('seed-attachments', '2026-07-22T15:01:00.000Z', 1),
+          txt('Newest-first and custom order drop new attachments at the top; oldest-first drops them at the bottom.', '2026-07-22T15:02:00.000Z', 2),
+        ],
+        createdAt: '2026-07-22T15:00:00.000Z', updatedAt: '2026-07-22T15:05:00.000Z',
+      }),
+      card({
+        id: uuid(), title: 'Real-time sync across devices', binderId: blocked, order: 0, x: 80, y: 80,
+        description: 'Live multi-device sync. Blocked on choosing a strategy (CRDT vs. last-write-wins) and an auth story.',
+        createdAt: '2026-07-21T12:00:00.000Z', updatedAt: '2026-07-21T12:00:00.000Z',
+      }),
+      card({
+        id: uuid(), title: 'Card & binder drag animations', binderId: completed, order: 0, x: 80, y: 80,
+        description: 'Pick-up swing driven by horizontal velocity, pop-in on create, a drop-in settle, and a little binder wobble.',
+        attachments: [
+          img('seed-animations', '2026-07-20T14:00:00.000Z', 0),
+          txt('The swing eases back upright with a small requestAnimationFrame spring.', '2026-07-20T14:02:00.000Z', 1),
+        ],
+        createdAt: '2026-07-20T14:00:00.000Z', updatedAt: '2026-07-20T14:05:00.000Z',
+      }),
+      card({
+        id: uuid(), title: 'Dark mode', binderId: completed, order: 1, x: 80, y: 80,
+        description: 'Full light / dark theming via CSS custom properties on `[data-theme]`, remembered per browser.',
+        attachments: [txt('Toggle it with the ☾ / ☀ button at the top-right.', '2026-07-19T16:00:00.000Z', 0)],
+        createdAt: '2026-07-19T16:00:00.000Z', updatedAt: '2026-07-19T16:00:00.000Z',
+      }),
+      card({
+        id: uuid(), title: 'Rework palette to the Mujin brand', binderId: completed, order: 2, x: 80, y: 80,
+        description: 'Adopt the brand colors as CSS variables so every surface stays consistent.',
+        attachments: [txt('**Palette**\n\n- Orange `#e76125`\n- Gray `#646d72`\n- Red `#d21419`\n- Light `#ececec`', '2026-07-18T13:00:00.000Z', 0)],
+        createdAt: '2026-07-18T13:00:00.000Z', updatedAt: '2026-07-18T13:00:00.000Z',
+      }),
+    ];
+
+    const ws = { id: uuid(), name: 'Driftboard', view: { panX: 0, panY: 0, zoom: 1 }, binders, cards };
+    return { version: 2, activeWorkspaceId: ws.id, workspaces: [ws], trash: [] };
+  }
+
+  // Fetch the seed images into the blob store, then build + persist the board.
+  // Falls back gracefully (dropping any image that fails to load, or the whole
+  // seed) so the demo always comes up.
+  async function seed() {
+    const sizes = {};
+    const loaded = new Set();
+    for (const image of SEED_IMAGES) {
+      try {
+        const res = await fetch(image.src, { cache: 'force-cache' });
+        if (!res.ok) throw new Error('fetch failed');
+        const blob = await res.blob();
+        await putBlob(image.key, blob);
+        sizes[image.key] = blob.size;
+        loaded.add(image.key);
+      } catch { /* image missing — its attachment is dropped below */ }
+    }
+    try {
+      state = buildSeedState(sizes);
+      for (const ws of state.workspaces) for (const c of ws.cards) {
+        c.attachments = (c.attachments || []).filter((a) => a.type !== 'image' || loaded.has(a.filename));
+        c.attachments.forEach((a, i) => { a.order = i; });
+      }
+    } catch {
+      state = defaultState();
+    }
+    await persist();
+  }
+
   // --- Lookup helpers (mirror server.js) -------------------------------------
   const getWorkspace = (id) => state.workspaces.find((w) => w.id === id);
   function getBinder(id) {
@@ -122,11 +245,14 @@
   async function init() {
     db = await openDb();
     const rec = await idbReq(db.transaction('kv', 'readonly').objectStore('kv').get('state'));
-    state = rec ? rec.value : defaultState();
-    if (!Array.isArray(state.trash)) state.trash = [];
-    const blobs = await idbReq(db.transaction('blobs', 'readonly').objectStore('blobs').getAll());
-    for (const b of blobs) urlByFilename.set(b.filename, URL.createObjectURL(b.blob));
-    if (!rec) await persist();
+    if (rec) {
+      state = rec.value;
+      if (!Array.isArray(state.trash)) state.trash = [];
+      const blobs = await idbReq(db.transaction('blobs', 'readonly').objectStore('blobs').getAll());
+      for (const b of blobs) urlByFilename.set(b.filename, URL.createObjectURL(b.blob));
+    } else {
+      await seed(); // first visit: preload the demo board (sets state + blobs + persists)
+    }
   }
 
   // --- Route dispatch (mirrors server.js endpoints) --------------------------
@@ -323,8 +449,7 @@
     t.objectStore('kv').clear();
     t.objectStore('blobs').clear();
     await txDone(t);
-    state = defaultState();
-    await persist();
+    await seed(); // restore the preloaded demo board, not an empty one
   }
 
   window.DriftboardDemo = { handle, fileUrl, reset };

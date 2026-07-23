@@ -1,117 +1,144 @@
-# Driftboard
+<h1 align="center">🗂️ Driftboard</h1>
 
-Driftboard is a local, disk-backed visual to-do board built on an **infinite
-canvas**. Cards
-can float freely anywhere on the canvas or be filed into **binders** — little
-containers that hold an ordered stack of cards. You can keep as many independent
-**workspaces** as you like, each with its own canvas.
+<p align="center">
+  <b>An infinite-canvas to-do board.</b> Float cards anywhere, file them into colorful binders,<br>
+  and drop images, videos, links, and notes onto any card.
+</p>
 
-Every card has a title, a markdown description, and a list of removable
-attachments: markdown text, links, images, videos, and arbitrary files.
+<p align="center">
+  <a href="https://mitchellaidant.github.io/driftboard/"><img alt="Live Demo" src="https://img.shields.io/badge/▶%20%20Live%20Demo-e76125?style=for-the-badge&logoColor=white"></a>
+</p>
 
-## Two ways to run it
+<p align="center">
+  <img alt="Vanilla JS" src="https://img.shields.io/badge/vanilla%20JS-f7df1e?style=flat-square&logo=javascript&logoColor=black">
+  <img alt="Node + Express" src="https://img.shields.io/badge/Node%20%2B%20Express-2e8b57?style=flat-square&logo=node.js&logoColor=white">
+  <img alt="No build step" src="https://img.shields.io/badge/no%20build%20step-646d72?style=flat-square">
+  <img alt="Works offline" src="https://img.shields.io/badge/works%20offline-3b7dd8?style=flat-square">
+  <img alt="Demo saves to your browser" src="https://img.shields.io/badge/demo%20saves%20to%20your%20browser-8e44ad?style=flat-square">
+</p>
 
-Driftboard runs in **two modes from a single codebase** (`docs/`):
+<p align="center">
+  <img alt="Driftboard board" src="docs/media/normalView.png" width="900">
+</p>
 
-- **Server mode** (the real app) — the browser talks to the Express + disk-JSON
-  backend in `server.js`. Your board and uploads live on disk under `data/`.
-- **Demo mode** (browser-only) — no server. Everything is stored locally in the
-  browser via **IndexedDB** (metadata) and **Blobs** (uploaded files), so it can
-  be hosted as a static site on **GitHub Pages** with nothing to run.
+---
 
-**Live demo:** https://mitchellaidant.github.io/driftboard/
+## ✨ Try it now — no install
 
-## Why a local server instead of localStorage
+**[▶ Open the live demo →](https://mitchellaidant.github.io/driftboard/)**
 
-Card metadata is stored as JSON in `data/board.json`, and pasted/dropped media
-are saved as real files under `data/uploads/`. This is far more durable than
-`localStorage` (capped at a few MB and wiped when you clear browser data), and
-your images and videos live on disk where you can back them up or inspect them
-directly.
+The demo runs **entirely in your browser** — there's no server and nothing is
+uploaded anywhere. Your board (and any files you drop in) are saved **on your own
+machine** in the browser's local storage, which can be cleared, so DO NOT use the demo
+for your personal use. Instead, [Run it locally](#-run-it-locally).
 
-## Run it
+---
+
+## 🎡 What you can do
+
+### Drag everything, with a bit of bounce
+Grab a card and move it wherever you like it; drop it into a
+binder or leave it floating on the canvas.
+
+<p align="center"><img alt="Card drag animations" src="docs/media/cardMoveAnimations.gif" width="820"></p>
+
+### Rich cards with attachments
+Open any card for a title, a description, and a stack of attachments —
+**text notes, links, images, videos, and files**. Drag a file to the binder,
+or just paste (⌘/Ctrl+V) straight onto the card. Text uses markdown formatting!
+
+<p align="center"><img alt="Card attachments" src="docs/media/cardAttachmentView.png" width="820"></p>
+
+### Reorder attachments by hand
+Drag any attachment by its grip: a lifted preview follows your cursor and an
+**orange placeholder** shows exactly where it'll land, while the rest slide out of
+the way.
+
+<p align="center"><img alt="Attachment reordering" src="docs/media/showCardAttachments.gif" width="820"></p>
+
+---
+
+## 🧭 The tour
+
+**Canvas**
+- **Pan** — drag empty space, or scroll (two-finger on a trackpad).
+- **Zoom** — ⌘/Ctrl + scroll, or the `+` / `−` / `100%` controls. `100%` resets the view.
+
+**Boards** (the tabs up top)
+- **+** makes a new empty board and opens it.
+- **Double-click a tab** to rename it; the **⋯** menu also has Rename / Delete.
+
+**Binders & cards**
+- Add a **binder** or a floating **card** from the bottom toolbar; a binder also
+  has its own *+ Add a card*.
+- **Move a card** by dragging — into a binder to file it, or onto open canvas to
+  let it float. **Move a binder** by its title bar.
+- **Edit a binder** — double-click it to rename, pick an accent **color**, and add
+  a description shown under its title.
+- **Open a card** — click it. The title saves on blur; edit the description with
+  the ✏ pencil (or double-click it) and click away to save.
+
+**Attachments**
+- The big **+**: click for a markdown note, or drag a file / paste to upload.
+  Dropping a link adds it as a URL. New items land at the top (or the bottom in
+  oldest-first order) and scroll into view.
+- The sort button cycles **Newest → Oldest → Custom**; dragging to reorder switches
+  to Custom automatically.
+
+**Appearance**
+- **Light / dark** toggle at the top-right (remembered per browser).
+- **Snap to grid** toggle so cards and binders line up as you drag.
+
+**Undo**
+- Deleting a card or binder is **undoable** — the toast's **Undo** button or
+  **⌘/Ctrl+Z**. The last 40 deletions come back, even after a restart.
+
+---
+
+## 💻 Run it locally
+
+Running locally gives you the **full app with a small Node server** that saves your
+board as real files on disk (great for backups) instead of in the browser.
 
 ```sh
-npm install      # first time only
-npm start        # then open http://localhost:4321
+git clone https://github.com/mitchellaidant/driftboard.git
+cd driftboard
+npm install
+npm start
 ```
 
-Set a different port with `PORT=5000 npm start`.
+Then open **http://localhost:4321**. Use a different port with `PORT=5000 npm start`.
 
-## Using it
+---
 
-### Canvas
-- **Pan** — drag empty canvas, or scroll (trackpad two-finger works too).
-- **Zoom** — ⌘/Ctrl + scroll, or the `+` / `−` / `100%` controls in the toolbar.
-  `100%` resets the view.
+## 💾 Where your stuff is saved
 
-### Boards (workspaces)
-- Switch with the tabs in the header, Excel-style. **+** instantly creates a new
-  **empty** board named "New board" (no dialog) and opens it.
-- **Double-click a tab's name** to rename it inline (Enter to save, Esc to
-  cancel). The **⋯** on the active tab also offers Rename / Delete board.
+| | Live demo (browser) | Local (`npm start`) |
+|---|---|---|
+| Storage | IndexedDB + Blobs, in your browser | JSON + files on disk under `data/` |
+| Leaves your machine? | No | No |
+| Survives clearing site data? | No | Yes |
+| Good for | trying it out | real, backed-up use |
 
-### Appearance
-- **Light / dark** toggle at the top-right (remembered per browser).
-- **Snap to grid** toggle in the toolbar — on by default, so binders and cards
-  align to the dotted grid as you drag. Toggle it off for free placement.
+For the local version, everything lives in `data/` (`board.json` plus an
+`uploads/` folder of your media) — copy that folder to back up or move everything.
 
-### Binders & cards
-- **Add a binder** or a **free card** from the bottom toolbar. A binder can also
-  add its own cards via *+ Add a card*.
-- **Move a card** — drag it. Drop it inside a binder to file it (with a live
-  insertion indicator), or drop it on open canvas to leave it floating anywhere.
-- **Move a binder** — drag it by its title bar. **Delete a card** quickly with
-  the 🗑 that appears on the card when you hover it (undoable).
-- **Edit a binder** — **double-click its title** to open the binder editor:
-  rename it, pick its accent **color** (click the color bar at the top), and give
-  it a **description** (shown under the binder title on the canvas).
-- **Open a card** — click it. Edit the **title** (saves on blur) and the
-  **description** — click the ✏ pencil *or double-click the description*, then
-  just click away to save. A card's description also previews under its title on
-  the board.
+---
 
-### Attachments
-- The big **+** button: **click** it to add a markdown text note, or **drag a
-  file onto it** (or paste with ⌘/Ctrl+V anywhere on the card) to upload images,
-  videos, and files. Dropping a link adds it as a URL.
-- Text notes **auto-save when you click away** — no save button.
-- Sort button cycles **Newest first → Oldest first → Custom order**. Drag any
-  attachment by its grip handle to reorder it — that automatically switches the
-  card to custom order and remembers it.
-- **Edit** a text note with the ✏ pencil; **remove** any attachment with the 🗑
-  trash icon.
+## 🧩 One codebase, two modes
 
-### Undo
-Deleting a card or a binder is **undoable** — hit the **Undo** button on the
-toast that appears, or press **⌘/Ctrl+Z**. Undo restores the item (and a card's
-uploaded files) exactly as it was; a binder's cards get re-filed into it. The
-last 40 deletions are recoverable, even across restarts.
+Both versions are the **same frontend** in `docs/`. It talks to storage through a
+single function, so it can run against the Node backend *or* a browser-only backend
+with no other changes:
 
-## Data & backups
+- **Server mode** — `server.js` (Express) serves `docs/` and stores data on disk.
+- **Demo mode** — `docs/demo-api.js` reimplements the same API against IndexedDB,
+  so the site works as a static page (that's how GitHub Pages hosts it).
 
-Everything lives in `data/`:
+<details>
+<summary>Publishing the demo to GitHub Pages</summary>
 
-```
-data/
-  board.json      # workspaces, binders, cards, positions, attachment metadata
-  uploads/        # the actual image/video/file bytes
-```
-
-Copy that folder to back up or move everything. Deleting a card, binder's cards,
-or a whole workspace also deletes the associated files from `data/uploads/`.
-
-## Layout
-
-```
-server.js          Express API + static host (serves docs/), JSON persistence, file uploads
-docs/index.html    App shell (shared by both modes; also the GitHub Pages entry)
-docs/styles.css    Styling (Mujin palette, Roboto)
-docs/app.js        Canvas, custom drag, workspaces, binders, modal, attachments
-docs/config.js     Chooses server vs demo backend (github.io / ?demo=1)
-docs/demo-api.js   Browser-only backend: IndexedDB + Blobs (demo mode)
-docs/vendor/       Vendored marked + dompurify (so the static site is self-contained)
-```
-
-`docs/` is both the static site the local server hosts and the GitHub Pages
-source, so there is only one copy of the frontend.
+`docs/` is already static-ready. In the repo, go to **Settings → Pages → Build and
+deployment → Source: Deploy from a branch**, pick **`main`** and the **`/docs`**
+folder, and save. Pages serves it at `https://<user>.github.io/<repo>/`.
+</details>
