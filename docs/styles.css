@@ -178,6 +178,7 @@ input, textarea { user-select: text; -webkit-user-select: text; }
   flex: 1; font-weight: 700; font-size: 15px; letter-spacing: 0.02em; color: var(--text);
   border: none; background: transparent; font-family: inherit; padding: 2px 4px;
   border-radius: 5px; min-width: 0;
+  user-select: none; -webkit-user-select: none; /* double-click opens the editor, doesn't highlight the text */
 }
 .binder-title:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); }
 .binder-count { font-size: 12px; font-weight: 600; color: var(--muted); background: rgba(127,127,127,0.15); border-radius: 10px; padding: 1px 8px; }
@@ -220,8 +221,7 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .card.free { position: absolute; width: 264px; }
 .card.drag-source { opacity: 0.35; }
-.card-accent { position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--orange); opacity: 0.85; }
-.card.free .card-accent { background: var(--gray); }
+.card-accent { position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--binder-color, var(--gray)); opacity: 0.85; }
 .card-title-txt { font-weight: 500; padding-left: 8px; padding-right: 46px; }
 .card-desc {
   padding-left: 8px; margin-top: 4px; font-size: 12.5px; color: var(--muted); line-height: 1.35;

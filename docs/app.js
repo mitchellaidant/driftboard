@@ -256,6 +256,10 @@ function makeCardEl(card, free) {
   el.className = 'card' + (free ? ' free' : '') + (card.id === pendingPopId ? ' pop-in' : '') + (card.id === droppedId ? ' drop-in' : '');
   el.dataset.id = card.id;
   if (free) { el.style.left = card.x + 'px'; el.style.top = card.y + 'px'; }
+  else if (card.binderId) { // accent stripe matches the binder's colour (set inline so the drag ghost keeps it)
+    const binder = ws.binders.find((b) => b.id === card.binderId);
+    if (binder) el.style.setProperty('--binder-color', binderColor(binder, ws.binders.indexOf(binder)));
+  }
   el.innerHTML = `<div class="card-accent"></div><div class="card-title-txt"></div><div class="card-desc"></div>${cardBadges(card)}`;
   el.querySelector('.card-title-txt').textContent = card.title;
   const descEl = el.querySelector('.card-desc');
@@ -264,10 +268,7 @@ function makeCardEl(card, free) {
 
   const actions = document.createElement('div');
   actions.className = 'card-actions';
-  const edit = document.createElement('button');
-  edit.className = 'icon-btn card-act'; edit.innerHTML = ICON.pencil; edit.title = 'Edit card';
-  edit.addEventListener('click', (e) => { e.stopPropagation(); openCard(card.id); });
-  const del = document.createElement('button');
+  const del = document.createElement('button'); // clicking the card opens it, so only a delete affordance is needed
   del.className = 'icon-btn danger card-act'; del.innerHTML = ICON.trash; del.title = 'Delete card';
   del.addEventListener('click', async (e) => {
     e.stopPropagation();
@@ -277,7 +278,7 @@ function makeCardEl(card, free) {
     try { await api('DELETE', `/api/cards/${card.id}`); await reloadWorkspace(); toastAction(`Deleted “${title}”`, 'Undo', undo); }
     catch (err) { el.classList.remove('removing'); toast(err.message); }
   });
-  actions.append(edit, del);
+  actions.append(del);
   el.appendChild(actions);
   return el;
 }
@@ -332,19 +333,27 @@ function wireBinderAdd(binderEl, binder) {
       <div class="row"><button class="btn-primary">Add</button><button class="btn">Cancel</button></div>`;
     addBtn.replaceWith(composer);
     const ta = composer.querySelector('textarea'); ta.focus();
-    const done = () => composer.replaceWith(addBtn);
+    let settled = false;
+    const cleanup = () => document.removeEventListener('pointerdown', onOutside, true);
+    const cancel = () => { if (settled) return; settled = true; cleanup(); composer.replaceWith(addBtn); };
     const save = async () => {
+      if (settled) return;
       const title = ta.value.trim();
-      if (!title) return done();
+      if (!title) return cancel();
+      settled = true; cleanup();
       try { const c = await api('POST', `/api/workspaces/${ws.id}/cards`, { title, binderId: binder.id }); pendingPopId = c.id; await reloadWorkspace(); }
-      catch (e) { toast(e.message); }
+      catch (e) { settled = false; document.addEventListener('pointerdown', onOutside, true); toast(e.message); }
     };
-    composer.querySelector('.btn-primary').addEventListener('click', save);
-    composer.querySelector('.btn').addEventListener('click', done);
-    ta.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); }
-      if (e.key === 'Escape') done();
-    });
+    const commitAway = () => { if (ta.value.trim()) save(); else cancel(); }; // text → card, empty → discard
+    // The canvas preventDefaults pointerdown (pan/drag), so blur alone can't catch a
+    // click-away — watch for any pointerdown outside the composer instead.
+    function onOutside(ev) { if (!composer.contains(ev.target)) commitAway(); }
+    document.addEventListener('pointerdown', onOutside, true);
+    // Buttons act on mousedown so they win the race against the textarea's blur.
+    composer.querySelector('.btn-primary').addEventListener('mousedown', (e) => { e.preventDefault(); save(); });
+    composer.querySelector('.btn').addEventListener('mousedown', (e) => { e.preventDefault(); cancel(); });
+    ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); } });
+    ta.addEventListener('blur', commitAway); // covers Ctrl+Enter / Escape (programmatic blur) and tab-away
   });
 }
 
@@ -794,7 +803,6 @@ function renderAttachment(att) {
     ta.value = att.content || '';
     setTimeout(() => ta.focus({ preventScroll: true }), 0);
     ta.addEventListener('blur', () => commitText(att, ta.value));
-    ta.addEventListener('keydown', (e) => { if (e.key === 'Escape') ta.blur(); });
   } else {
     const rm = el.querySelector('[data-a="remove"]'); if (rm) rm.addEventListener('click', () => removeAttachment(att.id));
     const ed = el.querySelector('[data-a="edit"]'); if (ed) ed.addEventListener('click', () => { editingAtts.add(att.id); renderAttachments(); });
@@ -896,8 +904,10 @@ $('delete-card').addEventListener('click', async () => {
 
 // ---------- binder editor ----------
 const BINDER_PALETTE = [
-  '#646d72', '#e76125', '#d21419', '#b8860b', '#2e8b57', '#3b7dd8',
-  '#8e44ad', '#e91e63', '#00897b', '#f4a300', '#5c6bc0', '#455a64',
+  '#646d72', '#7f8c8d', '#455a64', '#34495e', '#795548', '#8d6e63',
+  '#d21419', '#c0392b', '#e91e63', '#e76125', '#d35400', '#f4a300',
+  '#b8860b', '#f1c40f', '#7cb342', '#2e8b57', '#27ae60', '#16a085',
+  '#00897b', '#0097a7', '#3b7dd8', '#5c6bc0', '#8e44ad', '#9b59b6',
 ];
 let currentBinderId = null;
 const binderOverlay = $('binder-overlay');
@@ -942,7 +952,7 @@ function openColorPopover(x, y) {
     pop.appendChild(sw);
   });
   pop.style.left = Math.min(x, window.innerWidth - 220) + 'px';
-  pop.style.top = Math.min(y, window.innerHeight - 130) + 'px';
+  pop.style.top = Math.min(y, window.innerHeight - 175) + 'px'; // taller now (24 swatches / 4 rows)
   document.body.appendChild(pop);
   openMenuEl = pop;
   setTimeout(() => document.addEventListener('pointerdown', onDocDown, true), 0);
@@ -984,6 +994,26 @@ if (DEMO) {
     catch (e) { toast(e.message); }
   });
 }
+
+// ---------- text-field keyboard shortcuts (works in any input/textarea) ----------
+// Remember each field's value when editing begins, so Escape can revert cleanly.
+document.addEventListener('focusin', (e) => {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) t.dataset.origValue = t.value;
+});
+// Capture phase so this runs before the per-field / modal Escape handlers.
+document.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (!t || (t.tagName !== 'INPUT' && t.tagName !== 'TEXTAREA')) return;
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault(); e.stopPropagation();
+    t.blur(); // apply — every field saves on blur
+  } else if (e.key === 'Escape') {
+    if (t.dataset.origValue !== undefined) t.value = t.dataset.origValue; // revert to pre-edit value…
+    e.preventDefault(); e.stopPropagation();
+    t.blur(); // …then exit; the save-on-blur sees no change, so nothing is written
+  }
+}, true);
 
 // ---------- go ----------
 loadState().catch((e) => toast('Failed to load: ' + e.message));

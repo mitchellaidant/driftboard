@@ -20,24 +20,11 @@
 
 ---
 
-## ✨ Try it now — no install
-
-**[▶ Open the live demo →](https://mitchellaidant.github.io/driftboard/)**
-
-The demo runs **entirely in your browser** — there's no server and nothing is
-uploaded anywhere. Your board (and any files you drop in) are saved **on your own
-machine** in the browser's local storage, which can be cleared, so DO NOT use the demo
-for your personal use. Instead, [Run it locally](#-run-it-locally).
-
----
-
 ## 🎡 What you can do
 
 ### Drag everything, with a bit of bounce
 Grab a card and move it wherever you like it; drop it into a
 binder or leave it floating on the canvas.
-
-<p align="center"><img alt="Card drag animations" src="docs/media/cardMoveAnimations.gif" width="820"></p>
 
 ### Rich cards with attachments
 Open any card for a title, a description, and a stack of attachments —
@@ -50,6 +37,17 @@ Drag any attachment by its grip: a lifted preview follows your cursor and an
 the way.
 
 <p align="center"><img alt="Attachment reordering" src="docs/media/showCardAttachments.gif" width="820"></p>
+
+---
+
+## ✨ Try it now — no install
+
+**[▶ Open the live demo →](https://mitchellaidant.github.io/driftboard/)**
+
+The demo runs **entirely in your browser** — there's no server and nothing is
+uploaded anywhere. Your board (and any files you drop in) are saved **on your own
+machine** in the browser's local storage, which can be cleared, so DO NOT use the demo
+for your personal use. Instead, [Run it locally](#-run-it-locally).
 
 ---
 
