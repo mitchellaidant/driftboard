@@ -14,6 +14,7 @@
   'use strict';
 
   const STARTER_BINDERS = ['To Do', 'In Progress', 'Blocked', 'Reviewing', 'Completed'];
+  const SEED_VERSION = 1; // bump to re-seed everyone's untouched demo board
   const TRASH_CAP = 40;
   const DB_NAME = 'driftboard-demo';
 
@@ -136,7 +137,16 @@
     ];
 
     const ws = { id: uuid(), name: 'Driftboard', view: { panX: 0, panY: 0, zoom: 1 }, binders, cards };
-    return { version: 2, activeWorkspaceId: ws.id, workspaces: [ws], trash: [] };
+    return { version: 2, demoSeeded: SEED_VERSION, activeWorkspaceId: ws.id, workspaces: [ws], trash: [] };
+  }
+
+  // A board saved before seeding existed (or an old seed): a single workspace with
+  // no cards and no demoSeeded marker. Safe to (re)seed over — it holds nothing.
+  function isReseedable(s) {
+    return !!s
+      && s.demoSeeded !== SEED_VERSION
+      && Array.isArray(s.workspaces) && s.workspaces.length === 1
+      && (s.workspaces[0].cards || []).length === 0;
   }
 
   // Fetch the seed images into the blob store, then build + persist the board.
@@ -245,13 +255,13 @@
   async function init() {
     db = await openDb();
     const rec = await idbReq(db.transaction('kv', 'readonly').objectStore('kv').get('state'));
-    if (rec) {
+    if (rec && !isReseedable(rec.value)) {
       state = rec.value;
       if (!Array.isArray(state.trash)) state.trash = [];
       const blobs = await idbReq(db.transaction('blobs', 'readonly').objectStore('blobs').getAll());
       for (const b of blobs) urlByFilename.set(b.filename, URL.createObjectURL(b.blob));
     } else {
-      await seed(); // first visit: preload the demo board (sets state + blobs + persists)
+      await seed(); // fresh store, or a left-over empty board from before seeding existed
     }
   }
 

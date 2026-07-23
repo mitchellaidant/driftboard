@@ -12,9 +12,6 @@
 <p align="center">
   <img alt="Vanilla JS" src="https://img.shields.io/badge/vanilla%20JS-f7df1e?style=flat-square&logo=javascript&logoColor=black">
   <img alt="Node + Express" src="https://img.shields.io/badge/Node%20%2B%20Express-2e8b57?style=flat-square&logo=node.js&logoColor=white">
-  <img alt="No build step" src="https://img.shields.io/badge/no%20build%20step-646d72?style=flat-square">
-  <img alt="Works offline" src="https://img.shields.io/badge/works%20offline-3b7dd8?style=flat-square">
-  <img alt="Demo saves to your browser" src="https://img.shields.io/badge/demo%20saves%20to%20your%20browser-8e44ad?style=flat-square">
 </p>
 
 <p align="center">
