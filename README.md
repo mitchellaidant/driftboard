@@ -1,4 +1,8 @@
-<h1 align="center">🗂️ Driftboard</h1>
+<p align="center">
+  <img alt="Driftboard logo" src="docs/favicon.svg" width="96" height="96">
+</p>
+
+<h1 align="center">Driftboard</h1>
 
 <p align="center">
   <b>An infinite-canvas to-do board.</b> Float cards anywhere, file them into colorful binders,<br>
