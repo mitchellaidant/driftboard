@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <img alt="Driftboard board" src="docs/media/normalView.png" width="900">
+  <img alt="Driftboard board" src="docs/media/cardMoveAnimations.gif" width="900">
 </p>
 
 ---
@@ -46,8 +46,6 @@ binder or leave it floating on the canvas.
 Open any card for a title, a description, and a stack of attachments —
 **text notes, links, images, videos, and files**. Drag a file to the binder,
 or just paste (⌘/Ctrl+V) straight onto the card. Text uses markdown formatting!
-
-<p align="center"><img alt="Card attachments" src="docs/media/cardAttachmentView.png" width="820"></p>
 
 ### Reorder attachments by hand
 Drag any attachment by its grip: a lifted preview follows your cursor and an
