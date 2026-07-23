@@ -112,6 +112,19 @@ body {
 .ws-add:hover { color: var(--orange); border-color: var(--orange); }
 .theme-toggle { color: var(--gray); }
 
+/* demo-mode chip — hidden unless <body class="demo"> (set by app.js in demo mode) */
+.demo-banner { display: none; }
+body.demo .demo-banner {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  font-size: 12.5px; font-weight: 500; color: var(--orange);
+  background: rgba(231, 97, 37, 0.1); border: 1px solid rgba(231, 97, 37, 0.35);
+  padding: 3px 5px 3px 10px; border-radius: 999px; user-select: none;
+}
+.demo-banner .demo-flask { line-height: 1; }
+.demo-banner .demo-text { white-space: nowrap; }
+.demo-banner #demo-reset { padding: 2px 8px; }
+@media (max-width: 640px) { .demo-banner .demo-text { display: none; } }
+
 .save-status {
   display: flex; align-items: center; gap: 6px; flex: none;
   font-size: 12.5px; color: var(--muted); padding: 4px 9px; border-radius: 8px;

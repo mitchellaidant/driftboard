@@ -9,6 +9,18 @@ containers that hold an ordered stack of cards. You can keep as many independent
 Every card has a title, a markdown description, and a list of removable
 attachments: markdown text, links, images, videos, and arbitrary files.
 
+## Two ways to run it
+
+Driftboard runs in **two modes from a single codebase** (`docs/`):
+
+- **Server mode** (the real app) — the browser talks to the Express + disk-JSON
+  backend in `server.js`. Your board and uploads live on disk under `data/`.
+- **Demo mode** (browser-only) — no server. Everything is stored locally in the
+  browser via **IndexedDB** (metadata) and **Blobs** (uploaded files), so it can
+  be hosted as a static site on **GitHub Pages** with nothing to run.
+
+**Live demo:** https://mitchellaidant.github.io/driftboard/
+
 ## Why a local server instead of localStorage
 
 Card metadata is stored as JSON in `data/board.json`, and pasted/dropped media
@@ -92,8 +104,14 @@ or a whole workspace also deletes the associated files from `data/uploads/`.
 ## Layout
 
 ```
-server.js          Express API + static host, JSON persistence, file uploads
-public/index.html  App shell
-public/styles.css  Styling (Mujin palette, Roboto)
-public/app.js      Canvas, custom drag, workspaces, binders, modal, attachments
+server.js          Express API + static host (serves docs/), JSON persistence, file uploads
+docs/index.html    App shell (shared by both modes; also the GitHub Pages entry)
+docs/styles.css    Styling (Mujin palette, Roboto)
+docs/app.js        Canvas, custom drag, workspaces, binders, modal, attachments
+docs/config.js     Chooses server vs demo backend (github.io / ?demo=1)
+docs/demo-api.js   Browser-only backend: IndexedDB + Blobs (demo mode)
+docs/vendor/       Vendored marked + dompurify (so the static site is self-contained)
 ```
+
+`docs/` is both the static site the local server hosts and the GitHub Pages
+source, so there is only one copy of the frontend.

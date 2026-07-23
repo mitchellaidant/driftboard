@@ -152,10 +152,8 @@ function attachmentType(mimeType) {
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'docs'))); // static site (also the GitHub Pages source); marked/purify are vendored under docs/vendor/
 app.use('/uploads', express.static(UPLOADS_DIR));
-app.use('/vendor/marked.js', express.static(path.join(__dirname, 'node_modules/marked/lib/marked.umd.js')));
-app.use('/vendor/purify.js', express.static(path.join(__dirname, 'node_modules/dompurify/dist/purify.js')));
 
 // ---- Workspaces ----
 app.get('/api/state', (req, res) => {

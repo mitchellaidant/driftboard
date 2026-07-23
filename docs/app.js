@@ -27,6 +27,10 @@ let theme = localStorage.getItem('tt-theme') || 'light';
 let snapEnabled = localStorage.getItem('tt-snap') !== 'off';
 const editingAtts = new Set();
 
+// Demo mode (see config.js): all persistence runs in the browser via demo-api.js
+// instead of the Express backend. Off by default → the real server app is unchanged.
+const DEMO = !!window.DRIFTBOARD_DEMO;
+
 const $ = (id) => document.getElementById(id);
 const snap = (v) => (snapEnabled ? Math.round(v / GRID) * GRID : v);
 
@@ -60,6 +64,7 @@ async function api(method, url, body, isForm) {
   const isWrite = method !== 'GET';
   if (isWrite) beginSave();
   try {
+    if (DEMO) return await window.DriftboardDemo.handle(method, url, body, isForm); // browser backend, same shapes
     const res = await fetch(url, opts);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -111,7 +116,7 @@ function stripMd(s) {
     .replace(/\s+/g, ' ')
     .trim();
 }
-const fileUrl = (a) => `/uploads/${a.filename}`;
+const fileUrl = (a) => (DEMO ? window.DriftboardDemo.fileUrl(a.filename) : `/uploads/${a.filename}`);
 const looksLikeImage = (u) => /\.(png|jpe?g|gif|webp|svg|bmp|avif)(\?|#|$)/i.test(u);
 const looksLikeVideo = (u) => /\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(u);
 const clampZoom = (z) => Math.min(2.5, Math.max(0.25, z));
@@ -967,6 +972,16 @@ $('binder-delete').addEventListener('click', async () => {
 });
 binderOverlay.addEventListener('click', (e) => { if (e.target === binderOverlay) closeBinderEditor(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !binderOverlay.classList.contains('hidden')) closeBinderEditor(); });
+
+// ---------- demo mode ----------
+document.body.classList.toggle('demo', DEMO); // reveals the header demo banner (styles.css)
+if (DEMO) {
+  $('demo-reset').addEventListener('click', async () => {
+    if (!confirm('Reset the demo? This clears every board, card, and file stored in this browser.')) return;
+    try { await window.DriftboardDemo.reset(); location.reload(); }
+    catch (e) { toast(e.message); }
+  });
+}
 
 // ---------- go ----------
 loadState().catch((e) => toast('Failed to load: ' + e.message));
