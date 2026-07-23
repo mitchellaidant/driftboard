@@ -675,18 +675,72 @@ async function reorderAtts(card, ids) {
 function startAttReorder(e, attEl) {
   e.preventDefault();
   const card = currentCard(); if (!card) return;
-  attEl.classList.add('att-dragging');
+  const rect = attEl.getBoundingClientRect();
+  const offY = e.clientY - rect.top;
+  const startX = e.clientX, startY = e.clientY;
+  let moved = false, ghost = null, placeholder = null, beforeEl;
+
+  const siblings = () => [...attachmentsEl.querySelectorAll('.attachment')].filter((el) => el !== attEl);
+  const flipTargets = () => [...attachmentsEl.children].filter((el) => el !== attEl);
+
+  // FLIP: snapshot positions, mutate the list, then slide each item from where it
+  // was to where it landed — so the other attachments glide out of the way.
+  const flip = (mutate) => {
+    const first = new Map(flipTargets().map((el) => [el, el.getBoundingClientRect().top]));
+    mutate();
+    for (const el of flipTargets()) {
+      const from = first.get(el);
+      if (from == null) continue;
+      const dy = from - el.getBoundingClientRect().top;
+      if (!dy) continue;
+      el.style.transition = 'none';
+      el.style.transform = `translateY(${dy}px)`;
+      requestAnimationFrame(() => { el.style.transition = 'transform 0.16s ease'; el.style.transform = ''; });
+    }
+  };
+
+  // Move the orange placeholder to the slot the cursor is hovering, animating the shuffle.
+  const place = (clientY) => {
+    const after = siblings().find((el) => { const r = el.getBoundingClientRect(); return clientY < r.top + r.height / 2; }) || null;
+    if (after === beforeEl) return;
+    beforeEl = after;
+    flip(() => { if (after) attachmentsEl.insertBefore(placeholder, after); else attachmentsEl.appendChild(placeholder); });
+  };
+
   const move = (ev) => {
-    const others = [...attachmentsEl.querySelectorAll('.attachment')].filter((el) => el !== attEl);
-    const before = others.find((el) => { const r = el.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; });
-    if (before) attachmentsEl.insertBefore(attEl, before); else attachmentsEl.appendChild(attEl);
+    if (!moved) {
+      if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 4) return;
+      moved = true;
+      ghost = attEl.cloneNode(true);
+      ghost.classList.add('att-ghost');
+      ghost.style.transform = ''; ghost.style.transition = '';
+      ghost.style.width = rect.width + 'px';
+      ghost.style.left = rect.left + 'px';
+      document.body.appendChild(ghost);
+      placeholder = document.createElement('div');
+      placeholder.className = 'att-placeholder';
+      placeholder.style.height = rect.height + 'px';
+      attEl.after(placeholder);
+      attEl.classList.add('att-drag-source');
+      document.body.classList.add('att-reordering');
+    }
+    ghost.style.top = (ev.clientY - offY) + 'px';
+    place(ev.clientY);
   };
   const up = async () => {
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
-    attEl.classList.remove('att-dragging');
+    if (!moved) return;
+    document.body.classList.remove('att-reordering');
+    if (ghost) ghost.remove();
+    attachmentsEl.insertBefore(attEl, placeholder);
+    placeholder.remove();
+    attEl.classList.remove('att-drag-source');
+    flipTargets().forEach((el) => { el.style.transition = ''; el.style.transform = ''; }); // clear leftover FLIP transforms
+    attEl.classList.add('att-dropped');
+    setTimeout(() => attEl.classList.remove('att-dropped'), 300);
     const ids = [...attachmentsEl.querySelectorAll('.attachment')].map((el) => el.dataset.attId);
     await reorderAtts(card, ids);
-    updateSortBtn(); renderAttachments();
+    updateSortBtn(); // the DOM already shows the dropped order — no re-render, so the drop animation survives
   };
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
 }
@@ -733,7 +787,7 @@ function renderAttachment(att) {
   if (editing) {
     const ta = el.querySelector('.att-text-edit');
     ta.value = att.content || '';
-    setTimeout(() => ta.focus(), 0);
+    setTimeout(() => ta.focus({ preventScroll: true }), 0);
     ta.addEventListener('blur', () => commitText(att, ta.value));
     ta.addEventListener('keydown', (e) => { if (e.key === 'Escape') ta.blur(); });
   } else {
@@ -775,19 +829,39 @@ async function addJsonAttachment(payload) {
 }
 async function uploadFiles(files) {
   const card = currentCard(); if (!card) return;
+  const newIds = [];
   for (const file of files) {
     const fd = new FormData(); fd.append('file', file);
-    try { const att = await api('POST', `/api/cards/${card.id}/attachments`, fd, true); card.attachments.push(att); }
+    try { const att = await api('POST', `/api/cards/${card.id}/attachments`, fd, true); card.attachments.push(att); newIds.push(att.id); }
     catch (e) { toast(`${file.name}: ${e.message}`); }
   }
+  await afterAttachmentsAdded(newIds);
+}
+
+// New attachments land at the top under Custom and Newest-first order, and at the
+// bottom under Oldest-first — then we scroll so the fresh item is in view.
+async function afterAttachmentsAdded(newIds) {
+  const card = currentCard(); if (!card) return;
+  if (attMode(card) === 'custom' && newIds.length) {
+    const rest = sortedAttachments(card).filter((a) => !newIds.includes(a.id)).map((a) => a.id);
+    await reorderAtts(card, [...newIds, ...rest]); // Newest/Oldest already fall out of the createdAt sort
+  }
   renderAttachments(); renderWorkspace();
+  scrollToNewAttachments(newIds, attMode(card) === 'oldest');
+}
+function scrollToNewAttachments(newIds, toBottom) {
+  const els = newIds.map((id) => attachmentsEl.querySelector(`[data-att-id="${id}"]`)).filter(Boolean);
+  if (!els.length) return;
+  els.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+  (toBottom ? els[els.length - 1] : els[0]).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // big + / drop button
 addDrop.addEventListener('click', async () => {
   try {
     const att = await addJsonAttachment({ type: 'text', content: '' });
-    editingAtts.add(att.id); renderAttachments();
+    editingAtts.add(att.id);
+    await afterAttachmentsAdded([att.id]);
   } catch (e) { toast(e.message); }
 });
 document.addEventListener('paste', (e) => {
@@ -804,7 +878,7 @@ modal.addEventListener('drop', async (e) => {
   const dt = e.dataTransfer; if (!dt) return;
   if (dt.files && dt.files.length) { e.preventDefault(); uploadFiles(dt.files); return; }
   const uri = dt.getData('text/uri-list') || dt.getData('text/plain');
-  if (uri && /^https?:\/\//i.test(uri.trim())) { e.preventDefault(); await addJsonAttachment({ type: 'url', url: uri.trim() }); renderAttachments(); renderWorkspace(); }
+  if (uri && /^https?:\/\//i.test(uri.trim())) { e.preventDefault(); const att = await addJsonAttachment({ type: 'url', url: uri.trim() }); await afterAttachmentsAdded([att.id]); }
 });
 
 // delete card (trash icon, undoable)
